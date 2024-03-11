@@ -1,4 +1,3 @@
-
 from yt.wrapper import YtClient, yt_dataclass, TypedJob
 from yt.wrapper.schema import RowIterator
 from datetime import datetime, date
@@ -12,7 +11,7 @@ TARGET_PATH = "//home/student/assignments/revenue_by_month/output"
 @yt_dataclass
 class Users:
     action: str
-    date: datetime
+    timestamp: datetime
     value: float
 
 
@@ -26,7 +25,7 @@ class SimpleMap(TypedJob):
     def __call__(self, data: Users) -> Iterable[UsersDate]:
         if data.action == "confirmation":
             yield UsersDate(
-                month=data.date.strftime("%Y-%m"),
+                month=data.timestamp.strftime("%Y-%m"),
                 value=data.value
             )
 
@@ -37,7 +36,7 @@ class SimpleReduce(TypedJob):
         month = None
         for i in data:
             sum += i.value
-            month = i.date
+            month = i.month
         
         assert month is not None
 
@@ -53,9 +52,9 @@ def main():
     client.run_map_reduce(
         SimpleMap(),
         SimpleReduce(),
-        input_table=SOURCE_PATH,
+        source_table=SOURCE_PATH,
         destination_table=TARGET_PATH,
-        group_by=["month"]
+        reduce_by=["month"]
     )
 
 
