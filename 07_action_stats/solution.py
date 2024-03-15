@@ -1,5 +1,5 @@
 
-from yt.wrapper import YtClient, yt_dataclass, TypedJob, TablePath
+from yt.wrapper import YtClient, yt_dataclass, TypedJob, TablePath, reduce_aggregator
 from yt.wrapper.schema import RowIterator
 from typing import Iterable
 from datetime import datetime
@@ -62,12 +62,23 @@ class TrivialMap(TypedJob):
         yield data
 
 
-
+@reduce_aggregator
 class Summary_Reduce(TypedJob):
-    def __call__(self, data: RowIterator[User]) -> Iterable[User]:
+    def __call__(self, data: Iterable[RowIterator[User]]) -> Iterable[Freq]:
+        action_count = 0
+        uniqu = 0
+
         for i in data:
-            yield i
-            break
+            uniqu += 1
+            for j in i:
+                action_count += 1
+        
+        yield Freq(
+            action = "total",
+            avg_per_user = action_count / uniqu
+        )
+    
+
     
 
 def main():
@@ -99,20 +110,11 @@ def main():
     client.run_reduce(
         Summary_Reduce(),
         source_table="//tmp/users_table",
-        destination_table="//tmp/uniqu_users",
+        destination_table="//tmp/total",
         reduce_by=["userid"]
     )
 
-    path = TablePath(TARGET_PATH, append=True)
-
-    count_uniqu = client.get_attribute("//tmp/uniqu_users", "row_count")
-    count_actions = client.get_attribute("//tmp/users_table", "row_count")
-
-    client.write_table_structured(
-        path,
-        Freq,
-        [Freq(action="total", avg_per_user=count_actions / count_uniqu)]
-    )
+    
 
 if __name__ == "__main__":
     main()
