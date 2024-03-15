@@ -31,7 +31,7 @@ class Freq:
 
 
 class Reduce(TypedJob):
-    def __call__(self, data: RowIterator[User]) -> Iterable[FreqAction]:
+    def __call__(self, data: RowIterator[User]) -> Iterable[Freq]:
         action = None
         count_action = 0
         count_uniqu = 0
@@ -44,10 +44,9 @@ class Reduce(TypedJob):
         
         assert action is not None
         
-        yield FreqAction(
+        yield Freq(
             action=action,
-            freq_action=count_action,
-            uniqu=count_uniqu
+            avg_per_user=count_action / count_uniqu
         )
 
 class MapFreq(TypedJob):
@@ -65,57 +64,54 @@ class TrivialMap(TypedJob):
 
 
 class Summary_Reduce(TypedJob):
-    uniqu = 0
-    count = 0
-
-    def __call__(self, data: RowIterator[User]) -> Iterable[Freq]:
-        uniqu += 1
-
+    def __call__(self, data: RowIterator[User]) -> Iterable[User]:
         for i in data:
-            count += 1
-
-    def __del__(self) -> Iterable[Freq]:
-        count = count
-        uniqu = uniqu
-
-        return Freq(
-            action="total",
-            avg_per_user=count/uniqu
-        )
+            yield i
+            break
     
 
 def main():
     client = YtClient(proxy="127.0.0.1:8000", config={"proxy": {"enable_proxy_discovery": False}})
     
+    client.run_map(
+        TrivialMap(),
+        source_table=SOURCE_PATH,
+        destination_table="//tmp/users_table"
+    )
 
     client.run_sort(
-        source_table=SOURCE_PATH,
+        source_table="//tmp/users_table",
         sort_by=["action", "userid"]
     )
 
     client.run_reduce(
         Reduce(),
-        source_table=SOURCE_PATH,
-        destination_table="//tmp/action_stats",
+        source_table="//tmp/users_table",
+        destination_table=TARGET_PATH,
         reduce_by=["action"]
     )
 
-    client.run_map(
-        MapFreq(),
-        source_table="//tmp/action_stats",
-        destination_table=TARGET_PATH,
+    client.run_sort(
+        "//tmp/users_table",
+        sort_by=["userid"]
     )
 
-    client.run_map_reduce(
-        TrivialMap(),
+    client.run_reduce(
         Summary_Reduce(),
-        source_table=SOURCE_PATH,
-        destination_table="//tmp/stats_each_actions",
+        source_table="//tmp/users_table",
+        destination_table="//tmp/uniqu_users",
         reduce_by=["userid"]
     )
 
-    client.run_merdge(
+    path = TablePath(TARGET_PATH, append=True)
 
+    count_uniqu = client.get_attribute("//tmp/uniqu_users", "row_count")
+    count_actions = client.get_attribute("//tmp/users_table", "row_count")
+
+    client.write_table_structured(
+        path,
+        Freq,
+        [Freq(action="total", avg_per_user=count_actions / count_uniqu)]
     )
 
 if __name__ == "__main__":

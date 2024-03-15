@@ -45,7 +45,8 @@ def main():
     client = YtClient(proxy="127.0.0.1:8000", config={"proxy": {"enable_proxy_discovery": False}})
     
     client.remove(
-        "//tmp/top_buyers"
+        "//tmp/top_buyers",
+        force=True
     )
 
     client.run_map_reduce(
