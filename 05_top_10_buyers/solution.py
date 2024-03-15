@@ -37,13 +37,17 @@ class SimpleReduce(TypedJob):
 
         yield UsersData(
             userid=user,
-            count=count
+            count=-count
         )
 
 
 def main():
     client = YtClient(proxy="127.0.0.1:8000", config={"proxy": {"enable_proxy_discovery": False}})
     
+    client.remove(
+        "//tmp/top_buyers"
+    )
+
     client.run_map_reduce(
         SimpleMap(),
         SimpleReduce(),
@@ -52,21 +56,21 @@ def main():
         reduce_by=["userid"]
     )
 
+    
     client.run_sort(
         source_table="//tmp/top_buyers",
-        destination_table="//tmp/top_10_buyers",
-        sort_by=["count"]
+        sort_by=["count", "userid"]
     )
 
     # count_rows = client.get("//tmp/top_buyers/@row_count")
-    path = TablePath("//tmp/top_10_buyers", start_index=0, end_index=10)
+    path = TablePath("//tmp/top_buyers", start_index=0, end_index=10)
     top = []
 
     for i in client.read_table_structured(path, UsersData):
         top.append(i)
         
     for i in top:
-        print(i.userid, i.count)
+        print(i.userid, -i.count)
 
 if __name__ == "__main__":
     main()
