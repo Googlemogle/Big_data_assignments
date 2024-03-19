@@ -84,21 +84,26 @@ class Summary_Reduce(TypedJob):
 def main():
     client = YtClient(proxy="127.0.0.1:8000", config={"proxy": {"enable_proxy_discovery": False}})
     
+    client.remove(
+        "//tmp/users_table",
+        force=True
+    )
+
     client.run_map(
         TrivialMap(),
         source_table=SOURCE_PATH,
         destination_table="//tmp/users_table"
     )
-
+    
     client.run_sort(
         source_table="//tmp/users_table",
         sort_by=["action", "userid"]
     )
-
+    
     client.run_reduce(
         Reduce(),
         source_table="//tmp/users_table",
-        destination_table=TARGET_PATH,
+        destination_table="//tmp/action_stats",
         reduce_by=["action"]
     )
 
@@ -114,6 +119,10 @@ def main():
         reduce_by=["userid"]
     )
 
+    client.run_merge(
+        source_table = ["//tmp/action_stats", "//tmp/total"],
+        destination_table = TARGET_PATH
+    )
     
 
 if __name__ == "__main__":
