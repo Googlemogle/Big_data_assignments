@@ -3,7 +3,7 @@ from yt.wrapper.schema import RowIterator
 from datetime import datetime
 from typing import Iterable
 
-
+# approved by tests
 SOURCE_PATH = "//home/student/logs/user_activity_log"
 
 TARGET_PATH = "//home/student/assignments/max_acquisition_month/output"
@@ -37,7 +37,7 @@ class SimpleReduce_to_start_using(TypedJob):
         for i in data:
             yield UserMonth(
                 userid = i.userid,
-                month = i.timestamp.strftime("%Y%m")
+                month = i.timestamp.strftime("%Y-%m")
             )
             break
 
@@ -73,6 +73,20 @@ class MapMaxofMonth(TypedJob):
 def main():
     client = YtClient(proxy="127.0.0.1:8000", config={"proxy": {"enable_proxy_discovery": False}})
     
+    client.remove(
+        "//tmp/users_month",
+        force = True
+    )
+
+    client.remove(
+        "//tmp/user_month_get_start",
+        force = True
+    )
+
+    client.remove(
+        "//tmp/months_freq",
+        force = True
+    )
 
     client.run_map(
         SimpleMap(),
