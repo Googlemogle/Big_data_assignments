@@ -47,9 +47,9 @@ class ReduceSessions(TypedJob):
             
             for i in j:
                 
-                if now - first.timestamp > timedelta(minutes=30):
+                if i.timestamp - first.timestamp > timedelta(minutes=30):
                     session += 1
-                    frist = now
+                    frist = i
 
                 yield UsersSessions(
                         userid=i.userid,
